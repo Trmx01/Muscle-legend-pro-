@@ -717,4 +717,474 @@ local eggs = {
 }
 
 -- Egg Dropdown
-local eggDropdown = CreateDropdown(petsSection,
+local eggDropdown = CreateDropdown(petsSection, "Select Egg", eggs, function(option)
+    selectedEgg = option
+    print("Selected egg: " .. selectedEgg)
+end)
+
+-- Auto Buy Pets Toggle
+local autoBuyPetsToggle = CreateToggle(petsSection, "Auto Buy Pets", function(state)
+    autoBuyPets = state
+    
+    if state and selectedEgg then
+        spawn(function()
+            while autoBuyPets and selectedEgg and wait(1) do
+                local args = {
+                    [1] = "BuyEgg",
+                    [2] = selectedEgg
+                }
+                ReplicatedStorage.RemoteFunction:InvokeServer(unpack(args))
+            end
+        end)
+    end
+end)
+
+-- Button to open pets inventory
+local openPetsButton = CreateButton(petsSection, "Open Pets Inventory", function()
+    local args = {
+        [1] = "OpenMenu",
+        [2] = "Pets"
+    }
+    ReplicatedStorage.RemoteEvent:FireServer(unpack(args))
+end)
+
+-- Tools Tab
+local toolsSection, toolsContent = CreateSection("Tools", "Tools & Utilities")
+
+-- Anti-AFK Button
+local antiAFKButton = CreateButton(toolsSection, "Enable Anti-AFK", function()
+    local GC = getconnections or get_signal_cons
+    if GC then
+        for i, v in pairs(GC(Player.Idled)) do
+            if v["Disable"] then
+                v["Disable"](v)
+            elseif v["Disconnect"] then
+                v["Disconnect"](v)
+            end
+        end
+    else
+        -- Fallback for exploits without getconnections
+        local VirtualUser = game:GetService("VirtualUser")
+        Player.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end
+    
+    print("Anti-AFK enabled")
+end)
+
+-- Teleport To Spawn Button
+local teleportToSpawnButton = CreateButton(toolsSection, "Teleport To Spawn", function()
+    local character = Player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = CFrame.new(106, 13, -126)
+    end
+end)
+
+-- Walk Speed Controls
+local walkSpeedSection, walkSpeedContent = CreateSection("Tools", "Walk Speed")
+
+-- Walk Speed Toggle
+local walkSpeedEnabled = false
+local walkSpeedValue = 16 -- Default walk speed
+
+local walkSpeedToggle = CreateToggle(walkSpeedSection, "Custom Walk Speed", function(state)
+    walkSpeedEnabled = state
+    
+    if state then
+        spawn(function()
+            while walkSpeedEnabled and wait() do
+                local character = Player.Character
+                if character and character:FindFirstChild("Humanoid") then
+                    character.Humanoid.WalkSpeed = walkSpeedValue
+                end
+            end
+        end)
+    else
+        local character = Player.Character
+        if character and character:FindFirstChild("Humanoid") then
+            character.Humanoid.WalkSpeed = 16 -- Reset to default
+        end
+    end
+end)
+
+-- Walk Speed Buttons
+local speedOptions = {16, 32, 64, 100, 200}
+
+for i, speed in ipairs(speedOptions) do
+    CreateButton(walkSpeedSection, speed .. " Speed", function()
+        walkSpeedValue = speed
+        
+        local character = Player.Character
+        if character and character:FindFirstChild("Humanoid") and walkSpeedEnabled then
+            character.Humanoid.WalkSpeed = speed
+        end
+    end)
+end
+
+-- Settings Tab
+local settingsSection, settingsContent = CreateSection("Settings", "GUI Settings")
+
+-- Save Settings Button
+local saveSettingsButton = CreateButton(settingsSection, "Save Settings", function()
+    -- Simple settings saving
+    local savedSettings = {
+        autoStrength = autoStrength,
+        autoFarm = autoFarm,
+        autoRebirth = autoRebirth,
+        farmSpecificGym = farmSpecificGym,
+        selectedGym = selectedGym,
+        autoBuyPets = autoBuyPets,
+        selectedEgg = selectedEgg,
+        position = {
+            X = MainFrame.Position.X.Offset,
+            Y = MainFrame.Position.Y.Offset
+        }
+    }
+    
+    -- Convert to JSON
+    if writefile then
+        writefile("MuscleLegends_Settings.json", game:GetService("HttpService"):JSONEncode(savedSettings))
+        print("Settings saved!")
+    else
+        print("Your exploit doesn't support file saving.")
+    end
+end)
+
+-- Load Settings Button
+local loadSettingsButton = CreateButton(settingsSection, "Load Settings", function()
+    if readfile and isfile and isfile("MuscleLegends_Settings.json") then
+        local success, savedSettings = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile("MuscleLegends_Settings.json"))
+        end)
+        
+        if success then
+            -- Apply saved settings
+            if savedSettings.autoStrength ~= nil then
+                autoStrengthToggle.SetState(savedSettings.autoStrength)
+            end
+            
+            if savedSettings.autoFarm ~= nil then
+                autoFarmToggle.SetState(savedSettings.autoFarm)
+            end
+            
+            if savedSettings.autoRebirth ~= nil then
+                autoRebirthToggle.SetState(savedSettings.autoRebirth)
+            end
+            
+            if savedSettings.selectedGym and table.find(gyms, savedSettings.selectedGym) then
+                gymDropdown.SetValue(savedSettings.selectedGym)
+            end
+            
+            if savedSettings.farmSpecificGym ~= nil then
+                farmGymToggle.SetState(savedSettings.farmSpecificGym)
+            end
+            
+            if savedSettings.selectedEgg and table.find(eggs, savedSettings.selectedEgg) then
+                eggDropdown.SetValue(savedSettings.selectedEgg)
+            end
+            
+            if savedSettings.autoBuyPets ~= nil then
+                autoBuyPetsToggle.SetState(savedSettings.autoBuyPets)
+            end
+            
+            if savedSettings.position then
+                MainFrame.Position = UDim2.new(0.5, savedSettings.position.X, 0.5, savedSettings.position.Y)
+            end
+            
+            print("Settings loaded!")
+        else
+            print("Failed to load settings: Invalid format")
+        end
+    else
+        print("No saved settings found!")
+    end
+end)
+
+-- Reset GUI Button
+local resetGUIButton = CreateButton(settingsSection, "Reset GUI", function()
+    -- Reset position
+    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
+    
+    -- Reset toggles
+    autoStrengthToggle.SetState(false)
+    autoFarmToggle.SetState(false)
+    autoRebirthToggle.SetState(false)
+    farmGymToggle.SetState(false)
+    lockPositionToggle.SetState(false)
+    autoBuyPetsToggle.SetState(false)
+    
+    -- Reset dropdowns
+    gymDropdown.SetValue(gyms[1])
+    eggDropdown.SetValue(eggs[1])
+    
+    print("GUI reset to default settings!")
+end)
+
+-- Information Section
+local infoSection, infoContent = CreateSection("Settings", "Information")
+
+-- Create info text
+local infoText = Instance.new("TextLabel")
+infoText.Name = "InfoText"
+infoText.Size = UDim2.new(1, -20, 0, 80)
+infoText.Position = UDim2.new(0, 10, 0, 10)
+infoText.BackgroundTransparency = 1
+infoText.TextColor3 = Color3.fromRGB(200, 200, 200)
+infoText.TextSize = 14
+infoText.Font = Enum.Font.Gotham
+infoText.Text = "Muscle Legends GUI\nCreated for educational purposes\nVersion 1.0\n\nPress F1 to toggle the GUI"
+infoText.TextWrapped = true
+infoText.Parent = infoContent
+
+-- Resize section to fit info text
+infoSection.Size = UDim2.new(1, -20, 0, infoSection:FindFirstChild("Title").Size.Y.Offset + infoContent.Size.Y.Offset + 10 + infoText.Size.Y.Offset + 10)
+
+-- Add Credits section
+local creditsSection, creditsContent = CreateSection("Settings", "Credits")
+
+-- Create credits text
+local creditsText = Instance.new("TextLabel")
+creditsText.Name = "CreditsText"
+creditsText.Size = UDim2.new(1, -20, 0, 60)
+creditsText.Position = UDim2.new(0, 10, 0, 10)
+creditsText.BackgroundTransparency = 1
+creditsText.TextColor3 = Color3.fromRGB(200, 200, 200)
+creditsText.TextSize = 14
+creditsText.Font = Enum.Font.Gotham
+creditsText.Text = "Script by: YourName\nGUI design inspired by various sources\nThanks for using my script!"
+creditsText.TextWrapped = true
+creditsText.Parent = creditsContent
+
+-- Resize section to fit credits text
+creditsSection.Size = UDim2.new(1, -20, 0, creditsSection:FindFirstChild("Title").Size.Y.Offset + creditsContent.Size.Y.Offset + 10 + creditsText.Size.Y.Offset + 10)
+
+-- Toggle GUI with hotkey (F1)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.F1 then
+        MainFrame.Visible = not MainFrame.Visible
+        IconButton.Visible = false
+    end
+end)
+
+-- Load settings on startup (if available)
+spawn(function()
+    wait(1) -- Wait a bit for everything to load
+    if readfile and isfile and isfile("MuscleLegends_Settings.json") then
+        loadSettingsButton.MouseButton1Click:Fire()
+    end
+end)
+
+-- Auto-update labels with player stats
+local statsSection, statsContent = CreateSection("Main", "Player Stats")
+
+-- Create stat labels
+local strengthLabel = Instance.new("TextLabel")
+strengthLabel.Name = "StrengthLabel"
+strengthLabel.Size = UDim2.new(1, -20, 0, 20)
+strengthLabel.Position = UDim2.new(0, 10, 0, 10)
+strengthLabel.BackgroundTransparency = 1
+strengthLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+strengthLabel.TextSize = 14
+strengthLabel.Font = Enum.Font.Gotham
+strengthLabel.Text = "Strength: Loading..."
+strengthLabel.TextXAlignment = Enum.TextXAlignment.Left
+strengthLabel.Parent = statsContent
+
+local winsLabel = Instance.new("TextLabel")
+winsLabel.Name = "WinsLabel"
+winsLabel.Size = UDim2.new(1, -20, 0, 20)
+winsLabel.Position = UDim2.new(0, 10, 0, 40)
+winsLabel.BackgroundTransparency = 1
+winsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+winsLabel.TextSize = 14
+winsLabel.Font = Enum.Font.Gotham
+winsLabel.Text = "Wins: Loading..."
+winsLabel.TextXAlignment = Enum.TextXAlignment.Left
+winsLabel.Parent = statsContent
+
+local rebirthLabel = Instance.new("TextLabel")
+rebirthLabel.Name = "RebirthLabel"
+rebirthLabel.Size = UDim2.new(1, -20, 0, 20)
+rebirthLabel.Position = UDim2.new(0, 10, 0, 70)
+rebirthLabel.BackgroundTransparency = 1
+rebirthLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+rebirthLabel.TextSize = 14
+rebirthLabel.Font = Enum.Font.Gotham
+rebirthLabel.Text = "Rebirths: Loading..."
+rebirthLabel.TextXAlignment = Enum.TextXAlignment.Left
+rebirthLabel.Parent = statsContent
+
+-- Resize section to fit stat labels
+statsSection.Size = UDim2.new(1, -20, 0, statsSection:FindFirstChild("Title").Size.Y.Offset + statsContent.Size.Y.Offset + 10 + rebirthLabel.Position.Y.Offset + rebirthLabel.Size.Y.Offset + 10)
+
+-- Update stats regularly
+spawn(function()
+    while wait(1) do
+        if not Player:FindFirstChild("leaderstats") then continue end
+        
+        -- Update strength stat
+        if Player.leaderstats:FindFirstChild("Strength") then
+            local strength = Player.leaderstats.Strength.Value
+            local strengthFormatted = strength
+            
+            -- Format large numbers
+            if strength >= 1e12 then
+                strengthFormatted = string.format("%.2f T", strength / 1e12)
+            elseif strength >= 1e9 then
+                strengthFormatted = string.format("%.2f B", strength / 1e9)
+            elseif strength >= 1e6 then
+                strengthFormatted = string.format("%.2f M", strength / 1e6)
+            elseif strength >= 1e3 then
+                strengthFormatted = string.format("%.2f K", strength / 1e3)
+            end
+            
+            strengthLabel.Text = "Strength: " .. strengthFormatted
+        end
+        
+        -- Update wins stat
+        if Player.leaderstats:FindFirstChild("Wins") then
+            winsLabel.Text = "Wins: " .. Player.leaderstats.Wins.Value
+        end
+        
+        -- Update rebirth stat
+        if Player.leaderstats:FindFirstChild("Rebirths") then
+            rebirthLabel.Text = "Rebirths: " .. Player.leaderstats.Rebirths.Value
+        end
+    end
+end)
+
+-- Add notification system
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Name = "NotificationFrame"
+NotificationFrame.Size = UDim2.new(0, 250, 0, 0) -- Height will adjust when notifications appear
+NotificationFrame.Position = UDim2.new(1, -260, 0, 10)
+NotificationFrame.BackgroundTransparency = 1
+NotificationFrame.Parent = ScreenGui
+
+-- Function to create notifications
+local function CreateNotification(title, message, duration)
+    duration = duration or 5
+    
+    -- Find position for the new notification
+    local yOffset = 0
+    for _, child in ipairs(NotificationFrame:GetChildren()) do
+        yOffset = yOffset + child.Size.Y.Offset + 10
+    end
+    
+    -- Create notification
+    local Notification = Instance.new("Frame")
+    Notification.Name = "Notification_" .. tick()
+    Notification.Size = UDim2.new(1, 0, 0, 80)
+    Notification.Position = UDim2.new(0, 0, 0, yOffset)
+    Notification.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    Notification.BorderSizePixel = 0
+    Notification.Parent = NotificationFrame
+    
+    -- Title
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, -20, 0, 20)
+    Title.Position = UDim2.new(0, 10, 0, 5)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 16
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = title
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Notification
+    
+    -- Message
+    local Message = Instance.new("TextLabel")
+    Message.Name = "Message"
+    Message.Size = UDim2.new(1, -20, 0, 40)
+    Message.Position = UDim2.new(0, 10, 0, 30)
+    Message.BackgroundTransparency = 1
+    Message.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Message.TextSize = 14
+    Message.Font = Enum.Font.Gotham
+    Message.Text = message
+    Message.TextWrapped = true
+    Message.TextXAlignment = Enum.TextXAlignment.Left
+    Message.Parent = Notification
+    
+    -- Close Button
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Name = "CloseButton"
+    CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+    CloseBtn.Position = UDim2.new(1, -25, 0, 5)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    CloseBtn.BorderSizePixel = 0
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.TextSize = 14
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.Text = "X"
+    CloseBtn.Parent = Notification
+    
+    -- Animation: Slide in from right
+    Notification.Position = UDim2.new(1, 0, 0, yOffset)
+    Notification:TweenPosition(
+        UDim2.new(0, 0, 0, yOffset),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Quint,
+        0.3,
+        true
+    )
+    
+    -- Close button functionality
+    local function closeNotification()
+        Notification:TweenPosition(
+            UDim2.new(1, 0, 0, Notification.Position.Y.Offset),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Quint,
+            0.3,
+            true,
+            function()
+                Notification:Destroy()
+                -- Reposition other notifications
+                local newYOffset = 0
+                for _, child in ipairs(NotificationFrame:GetChildren()) do
+                    child:TweenPosition(
+                        UDim2.new(0, 0, 0, newYOffset),
+                        Enum.EasingDirection.Out,
+                        Enum.EasingStyle.Quint,
+                        0.3,
+                        true
+                    )
+                    newYOffset = newYOffset + child.Size.Y.Offset + 10
+                end
+            end
+        )
+    end
+    
+    CloseBtn.MouseButton1Click:Connect(closeNotification)
+    
+    -- Auto-close after duration
+    spawn(function()
+        wait(duration)
+        if Notification and Notification.Parent then
+            closeNotification()
+        end
+    end)
+    
+    return Notification
+end
+
+-- Call notification function on important events
+local function setupNotificationEvents()
+    CreateNotification("GUI Loaded", "Muscle Legends GUI has been loaded successfully!", 5)
+    
+    -- Example of showing notifications based on game events
+    Player.leaderstats.ChildAdded:Connect(function(stat)
+        if stat.Name == "Strength" or stat.Name == "Wins" or stat.Name == "Rebirths" then
+            CreateNotification("Stats Loaded", stat.Name .. " stat has been loaded!", 3)
+        end
+    end)
+end
+
+setupNotificationEvents()
+
+-- Print to console when loaded
+print("Muscle Legends GUI Loaded!")
+print("Press F1 to toggle the GUI")
